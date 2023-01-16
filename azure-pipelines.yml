@@ -1,0 +1,428 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger:
+  branches:
+    include:
+      - release
+      - main
+  paths:
+    include:
+      - /b2c-policies
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+- stage: Publish
+  jobs:
+  - job: Build
+    pool:
+        vmImage: ubuntu-latest
+    steps:       
+    - task: PublishPipelineArtifact@1
+      displayName: 'Publish Deployment Policies'
+      inputs:
+        targetPath: '$(System.DefaultWorkingDirectory)'
+        artifact: 'b2cpolicies'
+        publishLocation: 'pipeline'
+
+- stage: 'dev'
+  dependsOn: Publish
+  condition: succeeded()
+  jobs:
+  - deployment: Deploy
+    variables:
+      - group: hbl-endgame-keyvault-dev
+
+    pool:
+      vmImage: ubuntu-latest
+    environment: endgame-b2c-dev
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            - task: Bash@3
+              inputs:
+                targetType: 'inline'
+                inputs:
+                workingDirectory: "$(Pipeline.Workspace)/b2cpolicies/b2cpolicies"
+                script: |
+                      echo 'deployment to uat starts'
+                      ls -ltr
+                      pwd
+            - task: PowerShell@2
+              displayName: 'TrustFrameworkBase'
+              inputs:
+                filePath: '$(Pipeline.Workspace)/b2cpolicies/scripts/deploymentscript.ps1'
+                arguments: "-ClientID $(EndGame-Dev-B2C-AzureDevOpsDeploymentAppId) -ClientSecret $(EndGame-Dev-B2C-AzureDevOpsDeploymentAppSecret) -Tenant $(EndGame-Dev-B2CTenant) -PolicyId B2C_1A_TRUSTFRAMEWORKBASE -PathToFile B2C_1A_TRUSTFRAMEWORKBASE.xml -IdentityExperienceFrameworkAppId $(EndGame-Dev-B2C-IdentityExperienceFrameworkAppId) -ProxyIdentityExperienceFrameworkAppId $(EndGame-Dev-B2C-ProxyIdentityExperienceFrameworkAppId) -HYPRClientId $(EndGame-Dev-B2C-HYPRClientId) -B2CExtensionAppId $(EndGame-Dev-B2C-ExtensionAppId) -B2CExtensionAppObjectId $(EndGame-Dev-B2C-ExtensionObjectId) -TemplateBlobHostName $(EndGame-Dev-B2C-TemplateBlobHostName) -GETCustomerNosAPI $(EndGame-Dev-B2C-GETCustomerNosAPI) -ValidateLoginAPI $(EndGame-Dev-B2C-ValidateLoginAPI) -HYPRMetadata $(EndGame-Dev-B2C-HYPRMetadata) -HYPRProviderName $(EndGame-Dev-B2C-HYPRProviderName)"
+                workingDirectory: "$(Pipeline.Workspace)/b2cpolicies/b2cpolicies"
+            
+            - task: PowerShell@2
+              displayName: 'TrustFrameworkLocalizatoion'
+              inputs:
+                filePath: '$(Pipeline.Workspace)/b2cpolicies/scripts/deploymentscript.ps1'
+                arguments: "-ClientID $(EndGame-Dev-B2C-AzureDevOpsDeploymentAppId) -ClientSecret $(EndGame-Dev-B2C-AzureDevOpsDeploymentAppSecret) -Tenant $(EndGame-Dev-B2CTenant) -PolicyId B2C_1A_TRUSTFRAMEWORKLOCALIZATION -PathToFile B2C_1A_TRUSTFRAMEWORKLOCALIZATION.xml -IdentityExperienceFrameworkAppId $(EndGame-Dev-B2C-IdentityExperienceFrameworkAppId) -ProxyIdentityExperienceFrameworkAppId $(EndGame-Dev-B2C-ProxyIdentityExperienceFrameworkAppId) -HYPRClientId $(EndGame-Dev-B2C-HYPRClientId) -B2CExtensionAppId $(EndGame-Dev-B2C-ExtensionAppId) -B2CExtensionAppObjectId $(EndGame-Dev-B2C-ExtensionObjectId) -TemplateBlobHostName $(EndGame-Dev-B2C-TemplateBlobHostName) -GETCustomerNosAPI $(EndGame-Dev-B2C-GETCustomerNosAPI) -ValidateLoginAPI $(EndGame-Dev-B2C-ValidateLoginAPI)  -HYPRMetadata $(EndGame-Dev-B2C-HYPRMetadata) -HYPRProviderName $(EndGame-Dev-B2C-HYPRProviderName)"
+                workingDirectory: "$(Pipeline.Workspace)/b2cpolicies/b2cpolicies"      
+            
+            - task: PowerShell@2
+              displayName: 'TrustFrameworkExtension'
+              inputs:
+                filePath: '$(Pipeline.Workspace)/b2cpolicies/scripts/deploymentscript.ps1'
+                arguments: "-ClientID $(EndGame-Dev-B2C-AzureDevOpsDeploymentAppId) -ClientSecret $(EndGame-Dev-B2C-AzureDevOpsDeploymentAppSecret) -Tenant $(EndGame-Dev-B2CTenant) -PolicyId B2C_1A_TRUSTFRAMEWORKEXTENSIONS -PathToFile B2C_1A_TRUSTFRAMEWORKEXTENSIONS.xml -IdentityExperienceFrameworkAppId $(EndGame-Dev-B2C-IdentityExperienceFrameworkAppId) -ProxyIdentityExperienceFrameworkAppId $(EndGame-Dev-B2C-ProxyIdentityExperienceFrameworkAppId) -HYPRClientId $(EndGame-Dev-B2C-HYPRClientId) -B2CExtensionAppId $(EndGame-Dev-B2C-ExtensionAppId) -B2CExtensionAppObjectId $(EndGame-Dev-B2C-ExtensionObjectId) -TemplateBlobHostName $(EndGame-Dev-B2C-TemplateBlobHostName) -GETCustomerNosAPI $(EndGame-Dev-B2C-GETCustomerNosAPI) -ValidateLoginAPI $(EndGame-Dev-B2C-ValidateLoginAPI)  -HYPRMetadata $(EndGame-Dev-B2C-HYPRMetadata) -HYPRProviderName $(EndGame-Dev-B2C-HYPRProviderName)"
+                workingDirectory: "$(Pipeline.Workspace)/b2cpolicies/b2cpolicies"            
+            
+            - task: PowerShell@2
+              displayName: 'Signin'
+              inputs:
+                filePath: '$(Pipeline.Workspace)/b2cpolicies/scripts/deploymentscript.ps1'
+                arguments: "-ClientID $(EndGame-Dev-B2C-AzureDevOpsDeploymentAppId) -ClientSecret $(EndGame-Dev-B2C-AzureDevOpsDeploymentAppSecret) -Tenant $(EndGame-Dev-B2CTenant) -PolicyId B2C_1A_HYPR_SIGNIN -PathToFile B2C_1A_HYPR_SIGNIN.xml -IdentityExperienceFrameworkAppId $(EndGame-Dev-B2C-IdentityExperienceFrameworkAppId) -ProxyIdentityExperienceFrameworkAppId $(EndGame-Dev-B2C-ProxyIdentityExperienceFrameworkAppId) -HYPRClientId $(EndGame-Dev-B2C-HYPRClientId) -B2CExtensionAppId $(EndGame-Dev-B2C-ExtensionAppId) -B2CExtensionAppObjectId $(EndGame-Dev-B2C-ExtensionObjectId) -TemplateBlobHostName $(EndGame-Dev-B2C-TemplateBlobHostName) -GETCustomerNosAPI $(EndGame-Dev-B2C-GETCustomerNosAPI) -ValidateLoginAPI $(EndGame-Dev-B2C-ValidateLoginAPI)  -HYPRMetadata $(EndGame-Dev-B2C-HYPRMetadata) -HYPRProviderName $(EndGame-Dev-B2C-HYPRProviderName)"
+                workingDirectory: "$(Pipeline.Workspace)/b2cpolicies/b2cpolicies"                  
+            
+            - task: PowerShell@2
+              displayName: 'ChangePassword'
+              inputs:
+                filePath: '$(Pipeline.Workspace)/b2cpolicies/scripts/deploymentscript.ps1'
+                arguments: "-ClientID $(EndGame-Dev-B2C-AzureDevOpsDeploymentAppId) -ClientSecret $(EndGame-Dev-B2C-AzureDevOpsDeploymentAppSecret) -Tenant $(EndGame-Dev-B2CTenant) -PolicyId B2C_1A_ChangePassword -PathToFile B2C_1A_ChangePassword.xml -IdentityExperienceFrameworkAppId $(EndGame-Dev-B2C-IdentityExperienceFrameworkAppId) -ProxyIdentityExperienceFrameworkAppId $(EndGame-Dev-B2C-ProxyIdentityExperienceFrameworkAppId) -HYPRClientId $(EndGame-Dev-B2C-HYPRClientId) -B2CExtensionAppId $(EndGame-Dev-B2C-ExtensionAppId) -B2CExtensionAppObjectId $(EndGame-Dev-B2C-ExtensionObjectId) -TemplateBlobHostName $(EndGame-Dev-B2C-TemplateBlobHostName) -GETCustomerNosAPI $(EndGame-Dev-B2C-GETCustomerNosAPI) -ValidateLoginAPI $(EndGame-Dev-B2C-ValidateLoginAPI)  -HYPRMetadata $(EndGame-Dev-B2C-HYPRMetadata) -HYPRProviderName $(EndGame-Dev-B2C-HYPRProviderName)"
+                workingDirectory: "$(Pipeline.Workspace)/b2cpolicies/b2cpolicies"
+- stage: 'sit'
+  dependsOn: dev
+  condition: succeeded()
+  jobs:
+  - deployment: Deploy
+    variables:
+      - group: hbl-endgame-keyvault-sit
+
+    pool:
+      vmImage: ubuntu-latest
+    environment: endgame-b2c-sit
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            - task: Bash@3
+              inputs:
+                targetType: 'inline'
+                inputs:
+                workingDirectory: "$(Pipeline.Workspace)/b2cpolicies/b2cpolicies"
+                script: |
+                      echo 'deployment to uat starts'
+                      ls -ltr
+                      pwd
+            - task: PowerShell@2
+              displayName: 'TrustFrameworkBase'
+              inputs:
+                filePath: '$(Pipeline.Workspace)/b2cpolicies/scripts/deploymentscript.ps1'
+                arguments: "-ClientID $(EndGame-SIT-B2C-AzureDevOpsDeploymentAppId) -ClientSecret $(EndGame-SIT-B2C-AzureDevOpsDeploymentAppSecret) -Tenant $(EndGame-SIT-B2CTenant) -PolicyId B2C_1A_TRUSTFRAMEWORKBASE -PathToFile B2C_1A_TRUSTFRAMEWORKBASE.xml -IdentityExperienceFrameworkAppId $(EndGame-SIT-B2C-IdentityExperienceFrameworkAppId) -ProxyIdentityExperienceFrameworkAppId $(EndGame-SIT-B2C-ProxyIdentityExperienceFrameworkAppId) -HYPRClientId $(EndGame-SIT-B2C-HYPRClientId) -B2CExtensionAppId $(EndGame-SIT-B2C-ExtensionAppId) -B2CExtensionAppObjectId $(EndGame-SIT-B2C-ExtensionObjectId) -TemplateBlobHostName $(EndGame-SIT-B2C-TemplateBlobHostName) -GETCustomerNosAPI $(EndGame-SIT-B2C-GETCustomerNosAPI) -ValidateLoginAPI $(EndGame-SIT-B2C-ValidateLoginAPI)  -HYPRMetadata $(EndGame-SIT-B2C-HYPRMetadata) -HYPRProviderName $(EndGame-SIT-B2C-HYPRProviderName)"
+                workingDirectory: "$(Pipeline.Workspace)/b2cpolicies/b2cpolicies"
+            
+            - task: PowerShell@2
+              displayName: 'TrustFrameworkLocalizatoion'
+              inputs:
+                filePath: '$(Pipeline.Workspace)/b2cpolicies/scripts/deploymentscript.ps1'
+                arguments: "-ClientID $(EndGame-SIT-B2C-AzureDevOpsDeploymentAppId) -ClientSecret $(EndGame-SIT-B2C-AzureDevOpsDeploymentAppSecret) -Tenant $(EndGame-SIT-B2CTenant) -PolicyId B2C_1A_TRUSTFRAMEWORKLOCALIZATION -PathToFile B2C_1A_TRUSTFRAMEWORKLOCALIZATION.xml -IdentityExperienceFrameworkAppId $(EndGame-SIT-B2C-IdentityExperienceFrameworkAppId) -ProxyIdentityExperienceFrameworkAppId $(EndGame-SIT-B2C-ProxyIdentityExperienceFrameworkAppId) -HYPRClientId $(EndGame-SIT-B2C-HYPRClientId) -B2CExtensionAppId $(EndGame-SIT-B2C-ExtensionAppId) -B2CExtensionAppObjectId $(EndGame-SIT-B2C-ExtensionObjectId) -TemplateBlobHostName $(EndGame-SIT-B2C-TemplateBlobHostName) -GETCustomerNosAPI $(EndGame-SIT-B2C-GETCustomerNosAPI) -ValidateLoginAPI $(EndGame-SIT-B2C-ValidateLoginAPI) -HYPRMetadata $(EndGame-SIT-B2C-HYPRMetadata) -HYPRProviderName $(EndGame-SIT-B2C-HYPRProviderName)"
+                workingDirectory: "$(Pipeline.Workspace)/b2cpolicies/b2cpolicies"      
+            
+            - task: PowerShell@2
+              displayName: 'TrustFrameworkExtension'
+              inputs:
+                filePath: '$(Pipeline.Workspace)/b2cpolicies/scripts/deploymentscript.ps1'
+                arguments: "-ClientID $(EndGame-SIT-B2C-AzureDevOpsDeploymentAppId) -ClientSecret $(EndGame-SIT-B2C-AzureDevOpsDeploymentAppSecret) -Tenant $(EndGame-SIT-B2CTenant) -PolicyId B2C_1A_TRUSTFRAMEWORKEXTENSIONS -PathToFile B2C_1A_TRUSTFRAMEWORKEXTENSIONS.xml -IdentityExperienceFrameworkAppId $(EndGame-SIT-B2C-IdentityExperienceFrameworkAppId) -ProxyIdentityExperienceFrameworkAppId $(EndGame-SIT-B2C-ProxyIdentityExperienceFrameworkAppId) -HYPRClientId $(EndGame-SIT-B2C-HYPRClientId) -B2CExtensionAppId $(EndGame-SIT-B2C-ExtensionAppId) -B2CExtensionAppObjectId $(EndGame-SIT-B2C-ExtensionObjectId) -TemplateBlobHostName $(EndGame-SIT-B2C-TemplateBlobHostName) -GETCustomerNosAPI $(EndGame-SIT-B2C-GETCustomerNosAPI) -ValidateLoginAPI $(EndGame-SIT-B2C-ValidateLoginAPI) -HYPRMetadata $(EndGame-SIT-B2C-HYPRMetadata) -HYPRProviderName $(EndGame-SIT-B2C-HYPRProviderName)"
+                workingDirectory: "$(Pipeline.Workspace)/b2cpolicies/b2cpolicies"            
+            
+            - task: PowerShell@2
+              displayName: 'Signin'
+              inputs:
+                filePath: '$(Pipeline.Workspace)/b2cpolicies/scripts/deploymentscript.ps1'
+                arguments: "-ClientID $(EndGame-SIT-B2C-AzureDevOpsDeploymentAppId) -ClientSecret $(EndGame-SIT-B2C-AzureDevOpsDeploymentAppSecret) -Tenant $(EndGame-SIT-B2CTenant) -PolicyId B2C_1A_HYPR_SIGNIN -PathToFile B2C_1A_HYPR_SIGNIN.xml -IdentityExperienceFrameworkAppId $(EndGame-SIT-B2C-IdentityExperienceFrameworkAppId) -ProxyIdentityExperienceFrameworkAppId $(EndGame-SIT-B2C-ProxyIdentityExperienceFrameworkAppId) -HYPRClientId $(EndGame-SIT-B2C-HYPRClientId) -B2CExtensionAppId $(EndGame-SIT-B2C-ExtensionAppId) -B2CExtensionAppObjectId $(EndGame-SIT-B2C-ExtensionObjectId) -TemplateBlobHostName $(EndGame-SIT-B2C-TemplateBlobHostName) -GETCustomerNosAPI $(EndGame-SIT-B2C-GETCustomerNosAPI) -ValidateLoginAPI $(EndGame-SIT-B2C-ValidateLoginAPI) -HYPRMetadata $(EndGame-SIT-B2C-HYPRMetadata) -HYPRProviderName $(EndGame-SIT-B2C-HYPRProviderName)"
+                workingDirectory: "$(Pipeline.Workspace)/b2cpolicies/b2cpolicies"                  
+            
+            - task: PowerShell@2
+              displayName: 'ChangePassword'
+              inputs:
+                filePath: '$(Pipeline.Workspace)/b2cpolicies/scripts/deploymentscript.ps1'
+                arguments: "-ClientID $(EndGame-SIT-B2C-AzureDevOpsDeploymentAppId) -ClientSecret $(EndGame-SIT-B2C-AzureDevOpsDeploymentAppSecret) -Tenant $(EndGame-SIT-B2CTenant) -PolicyId B2C_1A_ChangePassword -PathToFile B2C_1A_ChangePassword.xml -IdentityExperienceFrameworkAppId $(EndGame-SIT-B2C-IdentityExperienceFrameworkAppId) -ProxyIdentityExperienceFrameworkAppId $(EndGame-SIT-B2C-ProxyIdentityExperienceFrameworkAppId) -HYPRClientId $(EndGame-SIT-B2C-HYPRClientId) -B2CExtensionAppId $(EndGame-SIT-B2C-ExtensionAppId) -B2CExtensionAppObjectId $(EndGame-SIT-B2C-ExtensionObjectId) -TemplateBlobHostName $(EndGame-SIT-B2C-TemplateBlobHostName) -GETCustomerNosAPI $(EndGame-SIT-B2C-GETCustomerNosAPI) -ValidateLoginAPI $(EndGame-SIT-B2C-ValidateLoginAPI) -HYPRMetadata $(EndGame-SIT-B2C-HYPRMetadata) -HYPRProviderName $(EndGame-SIT-B2C-HYPRProviderName)"
+                workingDirectory: "$(Pipeline.Workspace)/b2cpolicies/b2cpolicies" 
+- stage: 'uat'
+  dependsOn: sit
+  condition: and(succeeded(),eq(variables['Build.SourceBranch'],'refs/heads/release'))
+  jobs:
+  - job: uat_cr_validation
+    pool:
+        vmImage: ubuntu-latest
+    variables:
+      - group: hbl-endgame-keyvault-uat
+    steps:
+     - task: Bash@3
+       displayName: 'Change Request Validation Phase - UAT'
+       name: validatecr
+       inputs:
+         targetType: 'inline'
+         script: |
+           # Write your commands here
+           
+           echo 'B2C Setup Validation Phase for change request '$(uatChangeNumber)
+           if [ $uatChangeNumber == "000000" ]; then
+              echo "Change number is invalid. Please enter the correct one"
+              exit 1
+           fi
+           approvalStatus=$(curl --header "Accept: application/json" --header "AuthToken:$(ServiceDesk-Auth-Token)" -v https://portal.heartland.co.nz/api/v3/changes/$(uatChangeNumber) | jq .change.approval_status.name)
+           changeCloseStatus=$(curl --header "Accept: application/json" --header "AuthToken:$(ServiceDesk-Auth-Token)" -v https://portal.heartland.co.nz/api/v3/changes/$(uatChangeNumber) | jq .change.stage.name)
+
+           echo $approvalStatus
+           echo $changeCloseStatus
+
+           skipDeploy=true
+           echo 'skipDeploy - ' $skipDeploy
+           
+           if [[ $approvalStatus =~ "Approved" ]] && [[ ! $changeCloseStatus =~ "Close" ]]; then
+              echo "Change request is Approved"
+              skipDeploy=false
+           else
+              echo "Change request is not Approved yet or Change request number is already closed. Please verify the CR number"
+              skipDeploy=true
+           fi
+                     
+           echo 'skipDeploy - ' $skipDeploy
+           echo "##vso[task.setvariable variable=skipDeployVar;isoutput=true;]$skipDeploy"
+  - deployment: DeployPolicies 
+    dependsOn: uat_cr_validation
+    condition: and(succeeded(), eq(dependencies.uat_cr_validation.outputs['validatecr.skipDeployVar'], 'false'))    
+    variables:
+      - group: hbl-endgame-keyvault-uat
+
+    pool:
+      vmImage: ubuntu-latest
+    environment: endgame-b2c-uat
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            - bash: |       
+                  echo "##vso[task.setvariable variable=startTimeStamp;isoutput=true;]`date +"%s000"`"              
+              name: setDeploymentStartTime
+              displayName: Set Deployment Start Time
+            - task: Bash@3
+              inputs:
+                targetType: 'inline'
+                inputs:
+                workingDirectory: "$(Pipeline.Workspace)/b2cpolicies/b2cpolicies"
+                script: |
+                      echo 'deployment to uat starts'
+                      ls -ltr
+                      pwd
+            - task: PowerShell@2
+              displayName: 'TrustFrameworkBase'
+              inputs:
+                filePath: '$(Pipeline.Workspace)/b2cpolicies/scripts/deploymentscript.ps1'
+                arguments: "-ClientID $(EndGame-UAT-B2C-AzureDevOpsDeploymentAppId) -ClientSecret $(EndGame-UAT-B2C-AzureDevOpsDeploymentAppSecret) -Tenant $(EndGame-UAT-B2CTenant) -PolicyId B2C_1A_TRUSTFRAMEWORKBASE -PathToFile B2C_1A_TRUSTFRAMEWORKBASE.xml -IdentityExperienceFrameworkAppId $(EndGame-UAT-B2C-IdentityExperienceFrameworkAppId) -ProxyIdentityExperienceFrameworkAppId $(EndGame-UAT-B2C-ProxyIdentityExperienceFrameworkAppId) -HYPRClientId $(EndGame-UAT-B2C-HYPRClientId) -B2CExtensionAppId $(EndGame-UAT-B2C-ExtensionAppId) -B2CExtensionAppObjectId $(EndGame-UAT-B2C-ExtensionObjectId) -TemplateBlobHostName $(EndGame-UAT-B2C-TemplateBlobHostName) -GETCustomerNosAPI $(EndGame-UAT-B2C-GETCustomerNosAPI) -ValidateLoginAPI $(EndGame-UAT-B2C-ValidateLoginAPI)  -HYPRMetadata $(EndGame-UAT-B2C-HYPRMetadata) -HYPRProviderName $(EndGame-UAT-B2C-HYPRProviderName)"
+                workingDirectory: "$(Pipeline.Workspace)/b2cpolicies/b2cpolicies"
+            
+            - task: PowerShell@2
+              displayName: 'TrustFrameworkLocalizatoion'
+              inputs:
+                filePath: '$(Pipeline.Workspace)/b2cpolicies/scripts/deploymentscript.ps1'
+                arguments: "-ClientID $(EndGame-UAT-B2C-AzureDevOpsDeploymentAppId) -ClientSecret $(EndGame-UAT-B2C-AzureDevOpsDeploymentAppSecret) -Tenant $(EndGame-UAT-B2CTenant) -PolicyId B2C_1A_TRUSTFRAMEWORKLOCALIZATION -PathToFile B2C_1A_TRUSTFRAMEWORKLOCALIZATION.xml -IdentityExperienceFrameworkAppId $(EndGame-UAT-B2C-IdentityExperienceFrameworkAppId) -ProxyIdentityExperienceFrameworkAppId $(EndGame-UAT-B2C-ProxyIdentityExperienceFrameworkAppId) -HYPRClientId $(EndGame-UAT-B2C-HYPRClientId) -B2CExtensionAppId $(EndGame-UAT-B2C-ExtensionAppId) -B2CExtensionAppObjectId $(EndGame-UAT-B2C-ExtensionObjectId) -TemplateBlobHostName $(EndGame-UAT-B2C-TemplateBlobHostName) -GETCustomerNosAPI $(EndGame-UAT-B2C-GETCustomerNosAPI) -ValidateLoginAPI $(EndGame-UAT-B2C-ValidateLoginAPI) -HYPRMetadata $(EndGame-UAT-B2C-HYPRMetadata) -HYPRProviderName $(EndGame-UAT-B2C-HYPRProviderName)"
+                workingDirectory: "$(Pipeline.Workspace)/b2cpolicies/b2cpolicies"      
+            
+            - task: PowerShell@2
+              displayName: 'TrustFrameworkExtension'
+              inputs:
+                filePath: '$(Pipeline.Workspace)/b2cpolicies/scripts/deploymentscript.ps1'
+                arguments: "-ClientID $(EndGame-UAT-B2C-AzureDevOpsDeploymentAppId) -ClientSecret $(EndGame-UAT-B2C-AzureDevOpsDeploymentAppSecret) -Tenant $(EndGame-UAT-B2CTenant) -PolicyId B2C_1A_TRUSTFRAMEWORKEXTENSIONS -PathToFile B2C_1A_TRUSTFRAMEWORKEXTENSIONS.xml -IdentityExperienceFrameworkAppId $(EndGame-UAT-B2C-IdentityExperienceFrameworkAppId) -ProxyIdentityExperienceFrameworkAppId $(EndGame-UAT-B2C-ProxyIdentityExperienceFrameworkAppId) -HYPRClientId $(EndGame-UAT-B2C-HYPRClientId) -B2CExtensionAppId $(EndGame-UAT-B2C-ExtensionAppId) -B2CExtensionAppObjectId $(EndGame-UAT-B2C-ExtensionObjectId) -TemplateBlobHostName $(EndGame-UAT-B2C-TemplateBlobHostName) -GETCustomerNosAPI $(EndGame-UAT-B2C-GETCustomerNosAPI) -ValidateLoginAPI $(EndGame-UAT-B2C-ValidateLoginAPI) -HYPRMetadata $(EndGame-UAT-B2C-HYPRMetadata) -HYPRProviderName $(EndGame-UAT-B2C-HYPRProviderName)"
+                workingDirectory: "$(Pipeline.Workspace)/b2cpolicies/b2cpolicies"            
+            
+            - task: PowerShell@2
+              displayName: 'Signin'
+              inputs:
+                filePath: '$(Pipeline.Workspace)/b2cpolicies/scripts/deploymentscript.ps1'
+                arguments: "-ClientID $(EndGame-UAT-B2C-AzureDevOpsDeploymentAppId) -ClientSecret $(EndGame-UAT-B2C-AzureDevOpsDeploymentAppSecret) -Tenant $(EndGame-UAT-B2CTenant) -PolicyId B2C_1A_HYPR_SIGNIN -PathToFile B2C_1A_HYPR_SIGNIN.xml -IdentityExperienceFrameworkAppId $(EndGame-UAT-B2C-IdentityExperienceFrameworkAppId) -ProxyIdentityExperienceFrameworkAppId $(EndGame-UAT-B2C-ProxyIdentityExperienceFrameworkAppId) -HYPRClientId $(EndGame-UAT-B2C-HYPRClientId) -B2CExtensionAppId $(EndGame-UAT-B2C-ExtensionAppId) -B2CExtensionAppObjectId $(EndGame-UAT-B2C-ExtensionObjectId) -TemplateBlobHostName $(EndGame-UAT-B2C-TemplateBlobHostName) -GETCustomerNosAPI $(EndGame-UAT-B2C-GETCustomerNosAPI) -ValidateLoginAPI $(EndGame-UAT-B2C-ValidateLoginAPI) -HYPRMetadata $(EndGame-UAT-B2C-HYPRMetadata) -HYPRProviderName $(EndGame-UAT-B2C-HYPRProviderName)"
+                workingDirectory: "$(Pipeline.Workspace)/b2cpolicies/b2cpolicies"                  
+            
+            - task: PowerShell@2
+              displayName: 'ChangePassword'
+              inputs:
+                filePath: '$(Pipeline.Workspace)/b2cpolicies/scripts/deploymentscript.ps1'
+                arguments: "-ClientID $(EndGame-UAT-B2C-AzureDevOpsDeploymentAppId) -ClientSecret $(EndGame-UAT-B2C-AzureDevOpsDeploymentAppSecret) -Tenant $(EndGame-UAT-B2CTenant) -PolicyId B2C_1A_ChangePassword -PathToFile B2C_1A_ChangePassword.xml -IdentityExperienceFrameworkAppId $(EndGame-UAT-B2C-IdentityExperienceFrameworkAppId) -ProxyIdentityExperienceFrameworkAppId $(EndGame-UAT-B2C-ProxyIdentityExperienceFrameworkAppId) -HYPRClientId $(EndGame-UAT-B2C-HYPRClientId) -B2CExtensionAppId $(EndGame-UAT-B2C-ExtensionAppId) -B2CExtensionAppObjectId $(EndGame-UAT-B2C-ExtensionObjectId) -TemplateBlobHostName $(EndGame-UAT-B2C-TemplateBlobHostName) -GETCustomerNosAPI $(EndGame-UAT-B2C-GETCustomerNosAPI) -ValidateLoginAPI $(EndGame-UAT-B2C-ValidateLoginAPI) -HYPRMetadata $(EndGame-UAT-B2C-HYPRMetadata) -HYPRProviderName $(EndGame-UAT-B2C-HYPRProviderName)"
+                workingDirectory: "$(Pipeline.Workspace)/b2cpolicies/b2cpolicies"
+  - job: uat_add_worklog_to_CR
+    dependsOn: DeployPolicies
+    pool:
+        vmImage: ubuntu-latest
+    variables: 
+      - group: hbl-endgame-keyvault-uat
+      - name: startTimeStampVal
+        value: $[dependencies.DeployPolicies.outputs['DeployPolicies.setDeploymentStartTime.startTimeStamp']]
+    steps:
+    - bash: |
+          # Write your commands here
+
+          echo 'startTimeStampVal - '$(startTimeStampVal)
+
+          endTimeStamp=`date +"%s000"`
+
+          echo 'endTimeStamp - '$endTimeStamp
+
+          echo 'ownerid - ' $(ServiceDesk-Owner-Id)
+
+          cat add_worklow_request.json
+
+          sed -i "s/STARTTIME/$(startTimeStampVal)/g" add_worklow_request.json
+          sed -i "s/ENDTIME/$endTimeStamp/g" add_worklow_request.json
+          sed -i "s/OWNER_ID/$(ServiceDesk-Owner-Id)/g" add_worklow_request.json          
+
+          cat add_worklow_request.json
+
+          worklogStatus=$(curl -X POST 'https://portal.heartland.co.nz/api/v3/changes/$(uatChangeNumber)/worklogs' -H 'AuthToken: $(ServiceDesk-Auth-Token)' -H 'Content-Type: application/x-www-form-urlencoded' -d @add_worklow_request.json | jq .response_status.status_code)
+
+          echo "response - " $worklogStatus
+          if [ $worklogStatus == "2000" ]; then
+            echo "worklog added successfully"
+          else
+            echo "worklog addition failed"
+            exit 1
+          fi   
+      name: ServiceNowUpdateUAT
+      displayName: ServiceNow Worklog Update - UAT
+- stage: 'prod'
+  dependsOn: uat
+  condition: and(succeeded(),eq(variables['Build.SourceBranch'],'refs/heads/main'))
+  jobs:
+  - job: prod_cr_validation
+    pool:
+        vmImage: ubuntu-latest
+    variables:
+      - group: hbl-endgame-keyvault-prod
+    steps:
+     - task: Bash@3
+       displayName: 'Change Request Validation Phase - Prod'
+       name: validatecr
+       inputs:
+         targetType: 'inline'
+         script: |
+           # Write your commands here
+           
+           echo 'B2C Setup Validation Phase for change request '$(prodChangeNumber)
+           if [ $prodChangeNumber == "000000" ]; then
+              echo "Change number is invalid. Please enter the correct one"
+              exit 1
+           fi
+           approvalStatus=$(curl --header "Accept: application/json" --header "AuthToken:$(ServiceDesk-Auth-Token)" -v https://portal.heartland.co.nz/api/v3/changes/$(prodChangeNumber) | jq .change.approval_status.name)
+           changeCloseStatus=$(curl --header "Accept: application/json" --header "AuthToken:$(ServiceDesk-Auth-Token)" -v https://portal.heartland.co.nz/api/v3/changes/$(prodChangeNumber) | jq .change.stage.name)
+
+           echo $approvalStatus
+           echo $changeCloseStatus
+           
+           skipDeploy=true
+           echo 'skipDeploy - ' $
+           
+           if [[ $approvalStatus =~ "Approved" ]] && [[ ! $changeCloseStatus =~ "Close" ]]; then
+              echo "Change request is Approved"
+              skipDeploy=false
+           else
+              echo "Change request is not Approved yet or Change request number is already closed. Please verify the CR number"
+              skipDeploy=true
+           fi
+          
+           echo 'skipDeploy - ' $skipDeploy
+           echo "##vso[task.setvariable variable=skipDeployVar;isoutput=true;]$skipDeploy"
+  - deployment: DeployPolicies    
+    dependsOn: prod_cr_validation
+    condition: and(succeeded(), eq(dependencies.prod_cr_validation.outputs['validatecr.skipDeployVar'], 'false'))   
+
+    variables:
+      - group: hbl-endgame-keyvault-prod
+    pool:
+      vmImage: ubuntu-latest
+    environment: endgame-b2c-prod
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            - bash: |       
+                echo "##vso[task.setvariable variable=startTimeStampProd;isoutput=true]`date +"%s000"`"
+              name: setDeploymentStartTimePROD
+              displayName: Set Deployment Start Time
+            - task: Bash@3
+              inputs:
+                targetType: 'inline'
+                inputs:
+                workingDirectory: "$(Pipeline.Workspace)/b2cpolicies/b2cpolicies"
+                script: |
+                      echo 'deployment to prod starts'
+                      ls -ltr
+                      pwd
+            - task: PowerShell@2
+              displayName: 'TrustFrameworkBase'
+              inputs:
+                filePath: '$(Pipeline.Workspace)/b2cpolicies/scripts/deploymentscript.ps1'
+                arguments: "-ClientID $(EndGame-PROD-B2C-AzureDevOpsDeploymentAppId) -ClientSecret $(EndGame-PROD-B2C-AzureDevOpsDeploymentAppSecret) -Tenant $(EndGame-PROD-B2CTenant) -PolicyId B2C_1A_TRUSTFRAMEWORKBASE -PathToFile B2C_1A_TRUSTFRAMEWORKBASE.xml -IdentityExperienceFrameworkAppId $(EndGame-PROD-B2C-IdentityExperienceFrameworkAppId) -ProxyIdentityExperienceFrameworkAppId $(EndGame-PROD-B2C-ProxyIdentityExperienceFrameworkAppId) -HYPRClientId $(EndGame-PROD-B2C-HYPRClientId) -B2CExtensionAppId $(EndGame-PROD-B2C-ExtensionAppId) -B2CExtensionAppObjectId $(EndGame-PROD-B2C-ExtensionObjectId) -TemplateBlobHostName $(EndGame-PROD-B2C-TemplateBlobHostName) -GETCustomerNosAPI $(EndGame-PROD-B2C-GETCustomerNosAPI) -ValidateLoginAPI $(EndGame-PROD-B2C-ValidateLoginAPI)  -HYPRMetadata $(EndGame-PROD-B2C-HYPRMetadata) -HYPRProviderName $(EndGame-PROD-B2C-HYPRProviderName)"
+                workingDirectory: "$(Pipeline.Workspace)/b2cpolicies/b2cpolicies"
+            
+            - task: PowerShell@2
+              displayName: 'TrustFrameworkLocalizatoion'
+              inputs:
+                filePath: '$(Pipeline.Workspace)/b2cpolicies/scripts/deploymentscript.ps1'
+                arguments: "-ClientID $(EndGame-PROD-B2C-AzureDevOpsDeploymentAppId) -ClientSecret $(EndGame-PROD-B2C-AzureDevOpsDeploymentAppSecret) -Tenant $(EndGame-PROD-B2CTenant) -PolicyId B2C_1A_TRUSTFRAMEWORKLOCALIZATION -PathToFile B2C_1A_TRUSTFRAMEWORKLOCALIZATION.xml -IdentityExperienceFrameworkAppId $(EndGame-PROD-B2C-IdentityExperienceFrameworkAppId) -ProxyIdentityExperienceFrameworkAppId $(EndGame-PROD-B2C-ProxyIdentityExperienceFrameworkAppId) -HYPRClientId $(EndGame-PROD-B2C-HYPRClientId) -B2CExtensionAppId $(EndGame-PROD-B2C-ExtensionAppId) -B2CExtensionAppObjectId $(EndGame-PROD-B2C-ExtensionObjectId) -TemplateBlobHostName $(EndGame-PROD-B2C-TemplateBlobHostName) -GETCustomerNosAPI $(EndGame-PROD-B2C-GETCustomerNosAPI) -ValidateLoginAPI $(EndGame-PROD-B2C-ValidateLoginAPI) -HYPRMetadata $(EndGame-PROD-B2C-HYPRMetadata) -HYPRProviderName $(EndGame-PROD-B2C-HYPRProviderName)"
+                workingDirectory: "$(Pipeline.Workspace)/b2cpolicies/b2cpolicies"      
+            
+            - task: PowerShell@2
+              displayName: 'TrustFrameworkExtension'
+              inputs:
+                filePath: '$(Pipeline.Workspace)/b2cpolicies/scripts/deploymentscript.ps1'
+                arguments: "-ClientID $(EndGame-PROD-B2C-AzureDevOpsDeploymentAppId) -ClientSecret $(EndGame-PROD-B2C-AzureDevOpsDeploymentAppSecret) -Tenant $(EndGame-PROD-B2CTenant) -PolicyId B2C_1A_TRUSTFRAMEWORKEXTENSIONS -PathToFile B2C_1A_TRUSTFRAMEWORKEXTENSIONS.xml -IdentityExperienceFrameworkAppId $(EndGame-PROD-B2C-IdentityExperienceFrameworkAppId) -ProxyIdentityExperienceFrameworkAppId $(EndGame-PROD-B2C-ProxyIdentityExperienceFrameworkAppId) -HYPRClientId $(EndGame-PROD-B2C-HYPRClientId) -B2CExtensionAppId $(EndGame-PROD-B2C-ExtensionAppId) -B2CExtensionAppObjectId $(EndGame-PROD-B2C-ExtensionObjectId) -TemplateBlobHostName $(EndGame-PROD-B2C-TemplateBlobHostName) -GETCustomerNosAPI $(EndGame-PROD-B2C-GETCustomerNosAPI) -ValidateLoginAPI $(EndGame-PROD-B2C-ValidateLoginAPI) -HYPRMetadata $(EndGame-PROD-B2C-HYPRMetadata) -HYPRProviderName $(EndGame-PROD-B2C-HYPRProviderName)"
+                workingDirectory: "$(Pipeline.Workspace)/b2cpolicies/b2cpolicies"            
+            
+            - task: PowerShell@2
+              displayName: 'Signin'
+              inputs:
+                filePath: '$(Pipeline.Workspace)/b2cpolicies/scripts/deploymentscript.ps1'
+                arguments: "-ClientID $(EndGame-PROD-B2C-AzureDevOpsDeploymentAppId) -ClientSecret $(EndGame-PROD-B2C-AzureDevOpsDeploymentAppSecret) -Tenant $(EndGame-PROD-B2CTenant) -PolicyId B2C_1A_HYPR_SIGNIN -PathToFile B2C_1A_HYPR_SIGNIN.xml -IdentityExperienceFrameworkAppId $(EndGame-PROD-B2C-IdentityExperienceFrameworkAppId) -ProxyIdentityExperienceFrameworkAppId $(EndGame-PROD-B2C-ProxyIdentityExperienceFrameworkAppId) -HYPRClientId $(EndGame-PROD-B2C-HYPRClientId) -B2CExtensionAppId $(EndGame-PROD-B2C-ExtensionAppId) -B2CExtensionAppObjectId $(EndGame-PROD-B2C-ExtensionObjectId) -TemplateBlobHostName $(EndGame-PROD-B2C-TemplateBlobHostName) -GETCustomerNosAPI $(EndGame-PROD-B2C-GETCustomerNosAPI) -ValidateLoginAPI $(EndGame-PROD-B2C-ValidateLoginAPI) -HYPRMetadata $(EndGame-PROD-B2C-HYPRMetadata) -HYPRProviderName $(EndGame-PROD-B2C-HYPRProviderName)"
+                workingDirectory: "$(Pipeline.Workspace)/b2cpolicies/b2cpolicies"                  
+            
+            - task: PowerShell@2
+              displayName: 'ChangePassword'
+              inputs:
+                filePath: '$(Pipeline.Workspace)/b2cpolicies/scripts/deploymentscript.ps1'
+                arguments: "-ClientID $(EndGame-PROD-B2C-AzureDevOpsDeploymentAppId) -ClientSecret $(EndGame-PROD-B2C-AzureDevOpsDeploymentAppSecret) -Tenant $(EndGame-PROD-B2CTenant) -PolicyId B2C_1A_ChangePassword -PathToFile B2C_1A_ChangePassword.xml -IdentityExperienceFrameworkAppId $(EndGame-PROD-B2C-IdentityExperienceFrameworkAppId) -ProxyIdentityExperienceFrameworkAppId $(EndGame-PROD-B2C-ProxyIdentityExperienceFrameworkAppId) -HYPRClientId $(EndGame-PROD-B2C-HYPRClientId) -B2CExtensionAppId $(EndGame-PROD-B2C-ExtensionAppId) -B2CExtensionAppObjectId $(EndGame-PROD-B2C-ExtensionObjectId) -TemplateBlobHostName $(EndGame-PROD-B2C-TemplateBlobHostName) -GETCustomerNosAPI $(EndGame-PROD-B2C-GETCustomerNosAPI) -ValidateLoginAPI $(EndGame-PROD-B2C-ValidateLoginAPI) -HYPRMetadata $(EndGame-PROD-B2C-HYPRMetadata) -HYPRProviderName $(EndGame-PROD-B2C-HYPRProviderName)"
+                workingDirectory: "$(Pipeline.Workspace)/b2cpolicies/b2cpolicies"
+  - job: prod_add_worklog_to_CR
+    dependsOn: DeployPolicies
+    pool:
+        vmImage: ubuntu-latest
+    variables: 
+      - group: hbl-endgame-keyvault-prod
+      - name: startTimeStampProd
+        value: $[dependencies.DeployPolicies.outputs['DeployPolicies.setDeploymentStartTimePROD.startTimeStampProd']]
+    steps:
+    - bash: |
+          # Write your commands here
+
+          echo 'startTimeStampProd - '$(startTimeStampProd)
+
+          endTimeStamp=`date +"%s000"`
+
+          echo 'endTimeStamp - '$endTimeStamp
+
+          echo 'ownerid - ' $(ServiceDesk-Owner-Id)
+
+          cat add_worklow_request.json
+
+          sed -i "s/STARTTIME/$(startTimeStampProd)/g" add_worklow_request.json
+          sed -i "s/ENDTIME/$endTimeStamp/g" add_worklow_request.json
+          sed -i "s/OWNER_ID/$(ServiceDesk-Owner-Id)/g" add_worklow_request.json          
+
+          cat add_worklow_request.json
+
+          worklogStatus=$(curl -X POST 'https://portal.heartland.co.nz/api/v3/changes/$(prodChangeNumber)/worklogs' -H 'AuthToken: $(ServiceDesk-Auth-Token)' -H 'Content-Type: application/x-www-form-urlencoded' -d @add_worklow_request.json | jq .response_status.status_code)
+
+          echo "response - " $worklogStatus
+          if [ $worklogStatus == "2000" ]; then
+            echo "worklog added successfully"
+          else
+            echo "worklog addition failed"
+            exit 1
+          fi   
+      name: ServiceNowUpdateProd
+      displayName: ServiceNow Worklog Update - Prod
