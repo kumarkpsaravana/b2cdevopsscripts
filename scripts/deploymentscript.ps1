@@ -2,25 +2,15 @@
 Param(
     [Parameter(Mandatory = $true)][string]$ClientID,
     [Parameter(Mandatory = $true)][string]$ClientSecret,
-    [Parameter(Mandatory = $true)][string]$Tenant,
-    [Parameter(Mandatory = $true)][string]$PolicyId, 
-    [Parameter(Mandatory = $true)][string]$PathToFile,    
-    [Parameter(Mandatory = $true)][string]$IdentityExperienceFrameworkAppId,
-    [Parameter(Mandatory = $true)][string]$ProxyIdentityExperienceFrameworkAppId,
-    [Parameter(Mandatory = $true)][string]$HYPRClientId,
-    [Parameter(Mandatory = $true)][string]$B2CExtensionAppId,
-    [Parameter(Mandatory = $true)][string]$B2CExtensionAppObjectId,
-    [Parameter(Mandatory = $true)][string]$TemplateBlobHostName,
-    [Parameter(Mandatory = $true)][string]$GETCustomerNosAPI,
-    [Parameter(Mandatory = $true)][string]$ValidateLoginAPI,
-    [Parameter(Mandatory = $true)][string]$HYPRMetadata,
-    [Parameter(Mandatory = $true)][string]$HYPRProviderName
+    [Parameter(Mandatory = $true)][string]$TenantId,
+    [Parameter(Mandatory = $true)][string]$PolicyId,
+    [Parameter(Mandatory = $true)][string]$PathToFile
 )
 
 try {
     $body = @{grant_type = "client_credentials"; scope = "https://graph.microsoft.com/.default"; client_id = $ClientID; client_secret = $ClientSecret }
 
-    $response = Invoke-RestMethod -Uri https://login.microsoftonline.com/$Tenant/oauth2/v2.0/token -Method Post -Body $body
+    $response = Invoke-RestMethod -Uri https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token -Method Post -Body $body
     $token = $response.access_token
 
     $headers = New-Object "System.Collections.Generic.Dictionary[[String],[String]]"
@@ -35,28 +25,21 @@ try {
     $Environment = $env:ENVIRONMENT
 
     $applicationSettings = Get-Content "appsettings.json" | ConvertFrom-Json
-    $environmentSettings = $applicationSettings.Environments.where({$_.Name -eq "endgame"})
-
-    $environmentSettings.PolicySettings.IdentityExperienceFrameworkAppId = $IdentityExperienceFrameworkAppId
-    $environmentSettings.PolicySettings.ProxyIdentityExperienceFrameworkAppId = $ProxyIdentityExperienceFrameworkAppId
-    $environmentSettings.PolicySettings.HYPRClientId = $HYPRClientId
-    $environmentSettings.PolicySettings.B2CExtensionAppId = $B2CExtensionAppId
-    $environmentSettings.PolicySettings.B2CExtensionAppObjectId = $B2CExtensionAppObjectId
-    $environmentSettings.PolicySettings.TemplateBlobHostName = $TemplateBlobHostName
-    $environmentSettings.PolicySettings.GETCustomerNosAPI = $GETCustomerNosAPI
-    $environmentSettings.PolicySettings.ValidateLoginAPI = $ValidateLoginAPI
-    $environmentSettings.PolicySettings.HYPRMetadata = $HYPRMetadata
-    $environmentSettings.PolicySettings.HYPRProviderName = $HYPRProviderName
+    $environmentSettings = $applicationSettings.Environments.where({$_.Name -eq $Environment})
 
     #replace Settings:Tenant
-    $policycontent = $policycontent -replace "{Settings:Tenant}", $Tenant
+    $policycontent = $policycontent -replace "{Settings:Tenant}", $environmentSettings.Tenant
 
     foreach ($setting in $environmentSettings.PolicySettings.PsObject.Properties)
     {
         $policycontent = $policycontent -replace "{Settings:$($setting.Name)}", $setting.value
     }
 
+    Write-Host "graphuri - "  $graphuri
 
+    Write-Host "headers - "  $headers
+
+    Write-Host "policycontent - "  $policycontent
 
     $response = Invoke-RestMethod -Uri $graphuri -Method Put -Body $policycontent -Headers $headers
 
