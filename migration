@@ -1,0 +1,202 @@
+const request = require('request')
+const dotenv = require('dotenv');
+const path = require('path');
+const csv = require("csvtojson");
+const crypto = require('crypto');
+const fs = require('fs');
+
+const { PromisePool }  = require('@supercharge/promise-pool')
+
+var secrets = null;
+var accesstokenObj = null;
+var config = null;
+
+
+
+initializeSecrets().then(async data=>  {
+    
+    accesstokenObj = await getAuthToken();
+
+    console.log("Secrets retrived and configured successfully")
+
+    startMigration();
+});
+
+const getAuthToken = async function () {
+
+
+    var options = {
+        'method': 'POST',
+        'url': `https://login.microsoftonline.com/${secrets.b2cTenantDomain}/oauth2/v2.0/token`,
+        'headers': {
+            'Content-Type': 'application/x-www-form-encoded'
+        },
+        form: {
+            'grant_type': 'client_credentials',
+            'scope': 'https://graph.microsoft.com/.default',
+            "client_id": secrets.b2cUsermanagementAppId,
+            "client_secret": secrets.b2csecret
+        }
+    };
+
+    return new Promise(
+        (resolve, reject) => {
+            request(options, function (error, response) {
+                if (error) {
+                    reject(error);
+                }
+                resolve(JSON.parse(response.body));
+            });
+        }
+    );
+}
+
+const createUser = async (user) => {   
+    var password = generatePassword();   
+    var firstName = user.FirstName;
+    var displayName = user.DisplayName;
+    var lastName = ""
+
+
+    if(firstName.trim() == ""){
+
+        if(user.DisplayName.trim().indexOf(' ') == -1 ){
+            firstName = user.DisplayName;
+            lastName = user.DisplayName;
+        }
+        else{
+            firstName = user.DisplayName.slice(0, user.DisplayName.indexOf(' '));
+            lastName = user.DisplayName.split(/[, ]+/).pop();
+        }
+    }
+    
+    var aadUserObject = {
+        "displayName": displayName,
+       
+        "givenName": firstName,
+        "businessPhones":[user.TelephoneNumber],
+       "otherMails":[user.EmailAddress],
+        "identities": [{
+            "signInType": "userName",
+            "issuer": secrets.b2cTenantDomain,
+            "issuerAssignedId": user.SAMAccountName
+        }],
+        "passwordProfile": {
+            "password": password,
+            "forceChangePasswordNextSignIn": false
+        },
+        "passwordPolicies": "DisablePasswordExpiration,DisableStrongPassword"
+    }
+
+
+await createUserinAD(accesstokenObj.access_token, aadUserObject, user) 
+}   
+
+const createUserinAD = async (accessToken, aadUserObject, user) => {
+    var options = {
+        'method': 'POST',
+        'url': `https://graph.microsoft.com/v1.0/users`,
+        'headers': {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + accessToken
+        },
+        body: JSON.stringify(aadUserObject)
+    };
+
+    return new Promise(
+        (resolve, reject) => {
+            request(options, function (error, response) {
+                if (error) {
+                    console.log("create user is failed with error ", error)
+                    jsonRecord = { 'SNo': user.SNo, 'firstName':  aadUserObject.givenName, 'lastName': aadUserObject.surname, 'displayName': aadUserObject.displayName , 'email': aadUserObject[secrets.b2cEmailAttributeName],'username': aadUserObject.identities[0].issuerAssignedId,'mobile': aadUserObject[secrets.b2cMobileAttributeName], 'tenantnumber': aadUserObject[secrets.b2cTenantNumberAttributeName], 'status': error  }
+
+                  //  console.log("jsonRecord ",userData.givenName)
+
+                    csvData = `${jsonRecord.SNo},${jsonRecord.username},${jsonRecord.firstName},${jsonRecord.displayName},${jsonRecord.email},${jsonRecord.tenantnumber},${jsonRecord.mobile},${jsonRecord.status}\n`;
+                    //fs.writeFileSync('import_result.csv', csvData);
+
+                    fs.appendFile('import_result.csv', csvData, err => {
+                        if (err) throw err;
+                        //console.log('Data appended to file');
+                      });
+
+                    reject(error);
+                }
+                                
+                else if(response.statusCode != 201){
+                    console.log("create user response code is not successful ")
+
+                    jsonRecord = { 'SNo': user.SNo, 'firstName':  aadUserObject.givenName, 'lastName': aadUserObject.surname, 'displayName': aadUserObject.displayName , 'email': aadUserObject[secrets.b2cEmailAttributeName],'username': aadUserObject.identities[0].issuerAssignedId,'mobile': aadUserObject[secrets.b2cMobileAttributeName], 'tenantnumber': aadUserObject[secrets.b2cTenantNumberAttributeName], 'status': response.body  }
+
+
+                    csvData = `${jsonRecord.SNo},${jsonRecord.username},${jsonRecord.firstName},${jsonRecord.displayName},${jsonRecord.email},${jsonRecord.tenantnumber},${jsonRecord.mobile},${jsonRecord.status}\n`;
+
+                    fs.appendFile('import_result.csv', csvData, err => {
+                        if (err) throw err;
+                       // console.log('Data appended to file');
+                      });
+
+                      reject();
+
+                }
+                    else{
+                        console.log("create user response code is successful ")
+                        var result = JSON.parse(response.body)  
+
+                        jsonRecord = { 'SNo': user.SNo, 'firstName':  aadUserObject.givenName, 'lastName': aadUserObject.surname, 'displayName': aadUserObject.displayName , 'email': aadUserObject[secrets.b2cEmailAttributeName],'username': aadUserObject.identities[0].issuerAssignedId,'mobile': aadUserObject[secrets.b2cMobileAttributeName], 'tenantnumber': aadUserObject[secrets.b2cTenantNumberAttributeName], 'status': "Created", 'objectId': result.id }
+
+
+                    csvData = `${jsonRecord.SNo},${jsonRecord.username},${jsonRecord.firstName},${jsonRecord.displayName},${jsonRecord.email},${jsonRecord.tenantnumber},${jsonRecord.mobile},${jsonRecord.status},${jsonRecord.objectId}\n`;
+
+                        fs.appendFile('import_result_success.csv', csvData, err => {
+                            if (err) throw err;
+                            //console.log('Data appended to file');
+                          });
+
+                        resolve(JSON.parse(response.body));
+                    }
+            });
+        }
+    );
+}
+
+const generatePassword = (
+    length = 20,
+    wishlist = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz~!@-#$'
+  ) =>
+    Array.from(crypto.randomFillSync(new Uint32Array(length)))
+      .map((x) => wishlist[x % wishlist.length])
+      .join('')
+
+var startMigration = async function(a, b) {
+    const usersfromFile=await csv().fromFile('./users.csv');
+    const usersfromFileResult= await csv().fromFile('import_result_success.csv');
+    
+    const pendinguserstocreate = usersfromFile.filter(({ SAMAccountName }) =>
+            !usersfromFileResult.some(exclude => exclude.SAMAccountName === SAMAccountName)
+            );
+
+    console.log(`datetime is `,Date.now())
+
+    const { results, errors } = await PromisePool  
+    .for(pendinguserstocreate)
+    .withConcurrency(10)
+    .process(async data => {
+        console.log("processing record for user ");
+        await createUser(data);
+    })
+
+
+    
+    console.log(`datetime is `,Date.now())
+}
+
+async function initializeSecrets(){
+    secrets = {
+        b2cUsermanagementAppId: "",
+        b2cTenantId: "",
+        b2cTenantDomain: "",
+        b2csecret: ""
+    };  
+}
+
