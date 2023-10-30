@@ -1,0 +1,207 @@
+const request = require('request')
+const dotenv = require('dotenv');
+const path = require('path');
+const csv = require("csvtojson");
+const fs = require('fs');
+
+const { PromisePool }  = require('@supercharge/promise-pool')
+
+
+
+var secrets = null;
+var config = null;
+
+
+var accessToken = null;
+
+initializeSecrets().then( async data=>{
+
+     accessToken = await getAuthToken();
+    startDeleting();
+});
+
+const getAuthToken = async function () {
+
+
+    var options = {
+        'method': 'POST',
+        'url': `https://login.microsoftonline.com/${secrets.b2cTenantDomain}/oauth2/v2.0/token`,
+        'headers': {
+            'Content-Type': 'application/x-www-form-encoded'
+        },
+        form: {
+            'grant_type': 'client_credentials',
+            'scope': 'https://graph.microsoft.com/.default',
+            "client_id": secrets.b2cUsermanagementAppId,
+            "client_secret": secrets.b2csecret
+        }
+    };
+
+    return new Promise(
+        (resolve, reject) => {
+            request(options, function (error, response) {
+                if (error) {
+                    reject(error);
+                }
+                resolve(JSON.parse(response.body));
+            });
+        }
+    );
+}
+
+const deleteUser = async (user) => {   
+   
+
+    var usersFromAD = await getUserForUserName(accessToken.access_token, user.SAMAccountName)
+    if(usersFromAD.isSuccess){
+        if(usersFromAD.result.value.length > 0){
+            var userData = usersFromAD.result.value[0]
+
+            deleteUserinAD(accessToken.access_token, userData.id, user.SAMAccountName);
+        }
+        else{
+            console.log("get user is failed with error - User not exists ")
+            jsonRecord = {'userId':  user.SAMAccountName, 'status': "User not exists"  }
+            csvData = `${jsonRecord.SAMAccountName}, ${jsonRecord.status}\n`;
+
+            fs.appendFile('userstodelete_result.csv', csvData, err => {
+                if (err) throw err;
+                //console.log('Data appended to file');
+                });
+        }
+    }
+
+ 
+ 
+   // console.log(`Delete user finished.`,accessToken)
+}   
+
+const getUserForUserName = async (accessToken, userName) => {
+    var options = {
+        'method': 'GET',
+        'url': `https://graph.microsoft.com/v1.0/users?$select=id,otherMails,mobilePhone&$filter=identities/any(id:id/issuer eq '${secrets.b2cTenantDomain}' and id/issuerAssignedId eq '${userName}')`,
+        'headers': {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + accessToken
+        }
+    }
+
+    return new Promise(
+        (resolve, reject) => {
+            request(options, function (error, response) {
+                if (error) {
+                    console.log("get user is failed with error ", response.body)
+                    jsonRecord = {'userId':  userName, 'status': response.body  }
+                    csvData = `${jsonRecord.userId}, ${jsonRecord.status}\n`;
+          
+                    fs.appendFile('userstodelete_result.csv', csvData, err => {
+                        if (err) throw err;
+                       // console.log('Data appended to file');
+                      });
+                   
+                    resolve({isSuccess: false, result: error});
+                }
+                else if(response.statusCode != 200){
+                    console.log("get user is failed with error ", response.body)
+                    jsonRecord = {'userId':  userName, 'status': response.body  }
+                    csvData = `${jsonRecord.userId}, ${jsonRecord.status}\n`;
+          
+                    fs.appendFile('userstodelete_result.csv', csvData, err => {
+                        if (err) throw err;
+                      //  console.log('Data appended to file');
+                      });
+
+                    resolve({isSuccess: false, result: response.body});
+                }
+                else{
+                    resolve({isSuccess: true, result: JSON.parse(response.body)});
+                }   
+            });
+        }
+    );
+}
+
+const deleteUserinAD = async (accessToken, userObjectid, userId) => {
+    var options = {
+        'method': 'DELETE',
+        'url': `https://graph.microsoft.com/v1.0/users/${userObjectid}`,
+        'headers': {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + accessToken
+        }
+    };
+
+    return new Promise(
+        (resolve, reject) => {
+            request(options, function (error, response) {
+                if (error) {
+                   console.log("delete user is failed with error ", error)
+                    jsonRecord = {'userId':  userId, 'status': error  }
+                    csvData = `${jsonRecord.userId}, ${jsonRecord.status}\n`;
+          
+                    fs.appendFile('userstodelete_result.csv', csvData, err => {
+                        if (err) throw err;
+                       // console.log('Data appended to file');
+                      });
+
+                    resolve({isSuccess: false, result: error});
+                }
+                else if(response.statusCode != 204){
+                    console.log("delete user is failed with error ", response.body)
+                    jsonRecord = {'userId':  userId, 'status': response.body  }
+                    csvData = `${jsonRecord.userId}, ${jsonRecord.status}\n`;
+          
+                    fs.appendFile('userstodelete_result.csv', csvData, err => {
+                        if (err) throw err;
+                       // console.log('Data appended to file');
+                      });
+
+                    resolve({isSuccess: false, result: response.body});
+                }
+                else{
+                    jsonRecord = {'userId':  userId, 'status': "Success"  }
+                    csvData = `${jsonRecord.userId}, ${jsonRecord.status}\n`;
+
+                    fs.appendFile('userstodelete_success_result.csv', csvData, err => {
+                        if (err) throw err;
+                        //console.log('Data appended to file');
+                      });
+                    resolve({isSuccess: true, result: "User deleted successfully"});
+                }   
+            });
+        }
+    );
+}
+
+var startDeleting = async function(a, b) {
+
+    console.log(`datetime is `,Date.now())
+
+    const usersfromFile=await csv().fromFile(path.resolve(__dirname, 'userstodelete.csv'));
+
+    const usersfromFileResult= await csv().fromFile(path.resolve(__dirname, 'userstodelete_success_result.csv'));
+
+    const pendinguserstoread = usersfromFile.filter(({ SAMAccountName }) =>
+            !usersfromFileResult.some(exclude => exclude.SAMAccountName === SAMAccountName)
+            );
+            
+    console.log(`datetime is `,Date.now())
+
+    const { results, errors } = await PromisePool  
+        .for(pendinguserstoread)
+        .withConcurrency(10)
+        .process(async data => {
+            console.log("processing record for user ");
+           // await readUser(data);
+           await deleteUser(data);
+        })
+
+ console.log(`datetime is `,Date.now())
+}
+
+async function initializeSecrets(){
+    secrets = {
+        
+    };  
+}
+
