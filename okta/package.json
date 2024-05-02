@@ -1,0 +1,20 @@
+{
+  "name": "usermigration",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "create": "node create.js",
+    "activate": "node activate.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@supercharge/promise-pool": "^3.0.0",
+    "crypto": "^1.0.1",
+    "csvjson": "^5.1.0",
+    "csvtojson": "^2.0.10",
+    "path": "^0.12.7",
+    "request": "^2.88.2"
+  }
+}
