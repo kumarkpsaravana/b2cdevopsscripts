@@ -38,3 +38,12 @@ def lambda_handler(event, context):
         event['response']['publicChallengeParameters'] = {'challenge': 'SMS_MFA'}
         event['response']['privateChallengeParameters'] = {'mfaCode': '123456'}  # Example
     return event
+
+
+import logging
+
+# Configure the logger
+logging.basicConfig(
+    level=logging.DEBUG,  # Set the logging level to debug (logs everything)
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'  # Customize log format
+)
