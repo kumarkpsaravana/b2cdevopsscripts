@@ -55,3 +55,61 @@ logging.info("This is an info message")
 logging.warning("This is a warning message")
 logging.error("This is an error message")
 logging.critical("This is a critical message")
+
+
+def lambda_handler(event, context):
+    # If there's no session, it's the first authentication attempt
+    if not event['request']['session']:
+        # Check if MFA should be skipped
+        if 'skipMFA' in event['request']['clientMetadata'] and event['request']['clientMetadata']['skipMFA'] == 'true':
+            # Skip MFA and directly issue tokens after validating the username/password
+            event['response']['issueTokens'] = True
+        else:
+            # Otherwise, initiate the custom challenge for password validation
+            event['response']['challengeName'] = 'CUSTOM_CHALLENGE'
+            event['response']['failAuthentication'] = False
+    elif event['request']['session'][-1]['challengeResult'] is True:
+        # If password is correct, issue tokens
+        event['response']['issueTokens'] = True
+    else:
+        # If authentication fails, fail the authentication
+        event['response']['failAuthentication'] = True
+
+    return event
+
+
+def lambda_handler(event, context):
+    if event['request']['challengeName'] == 'CUSTOM_CHALLENGE':
+        # Store the expected username and password for validation (you should ideally retrieve this securely from Cognito)
+        event['response']['publicChallengeParameters'] = {
+            'challenge': 'Enter your password'
+        }
+        event['response']['privateChallengeParameters'] = {
+            'username': event['request']['userAttributes']['username'],
+            'password': event['request']['userAttributes']['password']  # Or securely fetch password
+        }
+    return event
+
+
+def lambda_handler(event, context):
+    # Retrieve the expected username and password from private challenge parameters
+    stored_username = event['request']['privateChallengeParameters']['username']
+    stored_password = event['request']['privateChallengeParameters']['password']
+    
+    # Get the response from the client (the username and password the user entered)
+    provided_username = event['request']['challengeAnswer']['username']
+    provided_password = event['request']['challengeAnswer']['password']
+
+    # Check if the provided username and password match the stored values
+    if stored_username == provided_username and stored_password == provided_password:
+        event['response']['answerCorrect'] = True  # Valid username and password
+        
+        # Check if MFA should be skipped (based on 'skipMFA' custom parameter)
+        if 'skipMFA' in event['request']['clientMetadata'] and event['request']['clientMetadata']['skipMFA'] == 'true':
+            event['response']['issueTokens'] = True  # Skip MFA and issue tokens
+        else:
+            event['response']['issueTokens'] = False  # MFA needed, do not issue tokens yet
+    else:
+        event['response']['answerCorrect'] = False  # Invalid credentials
+
+    return event
