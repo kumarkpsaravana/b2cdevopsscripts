@@ -113,3 +113,97 @@ def lambda_handler(event, context):
         event['response']['answerCorrect'] = False  # Invalid credentials
 
     return event
+
+
+
+
+
+
+
+
+
+
+def lambda_handler(event, context):
+    # Log the incoming event for debugging
+    print("DefineAuthChallenge Event: ", event)
+    
+    # Check if it's the first authentication attempt
+    if not event['request']['session']:
+        # Check if 'skipMFA' is present in AuthParameters
+        skip_mfa = event['request']['parameters'].get('skipMFA', 'false') == 'true'
+        
+        if skip_mfa:
+            # Skip MFA and directly issue tokens after password validation
+            event['response']['issueTokens'] = True
+        else:
+            # Otherwise, initiate the custom challenge (e.g., password validation)
+            event['response']['challengeName'] = 'CUSTOM_CHALLENGE'
+            event['response']['failAuthentication'] = False  # Don't fail authentication yet
+    elif event['request']['session'][-1]['challengeResult'] is True:
+        # If the password validation succeeds, issue tokens
+        event['response']['issueTokens'] = True
+    else:
+        # If the password validation fails, fail the authentication
+        event['response']['failAuthentication'] = True
+
+    return event
+
+
+
+
+
+def lambda_handler(event, context):
+    # Log the incoming event for debugging
+    print("CreateAuthChallenge Event: ", event)
+    
+    # If the challenge is a custom one (password validation)
+    if event['request']['challengeName'] == 'CUSTOM_CHALLENGE':
+        # Provide challenge details (password validation)
+        event['response']['publicChallengeParameters'] = {
+            'challenge': 'Enter your password'
+        }
+        event['response']['privateChallengeParameters'] = {
+            'username': event['request']['userAttributes']['username'],
+            # Password can be securely stored and retrieved, if necessary
+            'password': event['request']['userAttributes']['password']
+        }
+    return event
+
+
+
+
+
+
+
+def lambda_handler(event, context):
+    # Log the incoming event for debugging
+    print("VerifyAuthChallengeResponse Event: ", event)
+    
+    # Retrieve the expected username and password from private challenge parameters
+    stored_username = event['request']['privateChallengeParameters']['username']
+    stored_password = event['request']['privateChallengeParameters']['password']
+    
+    # Get the username and password entered by the user
+    provided_username = event['request']['challengeAnswer']['username']
+    provided_password = event['request']['challengeAnswer']['password']
+
+    # Validate the username and password
+    if stored_username == provided_username and stored_password == provided_password:
+        event['response']['answerCorrect'] = True  # Correct answer
+        
+        # Check for skipMFA in AuthParameters
+        skip_mfa = event['request']['parameters'].get('skipMFA', 'false') == 'true'
+        
+        if skip_mfa:
+            # If skipMFA is true, issue tokens immediately and skip MFA
+            event['response']['issueTokens'] = True
+        else:
+            # If skipMFA is not set, proceed with MFA
+            event['response']['issueTokens'] = False  # MFA needed, do not issue tokens yet
+    else:
+        # If authentication fails, don't issue tokens
+        event['response']['answerCorrect'] = False
+        event['response']['issueTokens'] = False
+
+    return event
+
