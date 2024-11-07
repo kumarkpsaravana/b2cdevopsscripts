@@ -1,0 +1,40 @@
+def lambda_handler(event, context):
+    # Access the last session's `AuthParameters`
+    session = event['request']['session']
+    auth_params = session[-1]['challengeMetadata'] if session else {}
+
+    # Example: check custom parameters
+    device_type = auth_params.get('deviceType')
+    login_method = auth_params.get('loginMethod')
+
+    # Define the challenge based on custom parameters
+    if device_type == 'trusted' and login_method == 'passwordless':
+        # Bypass MFA and issue tokens directly
+        event['response']['challengeName'] = 'CUSTOM_CHALLENGE'
+        event['response']['failAuthentication'] = False
+        event['response']['issueTokens'] = True
+    else:
+        # Require an MFA challenge if not trusted or if login method is password-based
+        event['response']['challengeName'] = 'SMS_MFA'
+        event['response']['failAuthentication'] = False
+        event['response']['issueTokens'] = False
+
+    return event
+
+
+
+
+def lambda_handler(event, context):
+    session = event['request']['session']
+    auth_params = session[-1]['challengeMetadata'] if session else {}
+
+    # Check if MFA is bypassed
+    if auth_params.get('deviceType') == 'trusted':
+        # Skip challenge creation for trusted devices
+        event['response']['publicChallengeParameters'] = {}
+        event['response']['privateChallengeParameters'] = {}
+    else:
+        # Create MFA challenge
+        event['response']['publicChallengeParameters'] = {'challenge': 'SMS_MFA'}
+        event['response']['privateChallengeParameters'] = {'mfaCode': '123456'}  # Example
+    return event
